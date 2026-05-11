@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🗂 カンバンボード | 社内共有</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="document.getElementById('loading-screen').innerHTML='<div style=\'color:#ef4444;text-align:center;padding:40px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600\'>Supabase SDKの読み込みに失敗しました</div><div style=\'font-size:12px;color:#64748b;margin-top:8px\'>インターネット接続を確認してください</div></div>'"></script>
+<style>
+@keyframes blink-y{0%,100%{box-shadow:0 0 0 4px #eab308,0 0 14px 4px rgba(234,179,8,.7)}50%{box-shadow:0 0 0 4px #ca8a04,0 0 28px 10px rgba(234,179,8,1)}}
+@keyframes blink-o{0%,100%{box-shadow:0 0 0 5px #f97316,0 0 18px 6px rgba(249,115,22,.8);transform:none}50%{box-shadow:0 0 0 5px #ea580c,0 0 36px 14px rgba(249,115,22,1);transform:scale(1.02)}}
+@keyframes blink-r{0%,100%{box-shadow:0 0 0 6px #ef4444,0 0 20px 8px rgba(239,68,68,.9);transform:none}50%{box-shadow:0 0 0 6px #dc2626,0 0 44px 18px rgba(239,68,68,1);transform:scale(1.03);background:rgba(239,68,68,.18)}}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#030712;--col-bg:rgba(15,23,42,.88);--col-border:rgba(255,255,255,.08);--text:#f1f5f9;--muted:#64748b;--accent:#6366f1;--danger:#ef4444}
+body{font-family:'Inter','Noto Sans JP',sans-serif;background:var(--bg);min-height:100vh;color:var(--text);overflow-x:auto}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(99,102,241,.08),transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(16,185,129,.06),transparent 60%);pointer-events:none}
+/* LOADING */
+#loading-screen{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted)}
+/* AUTH SCREENS */
+.auth-screen{position:fixed;inset:0;background:rgba(3,7,18,.96);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center}
+.auth-box{background:rgba(15,23,42,.95);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:40px;width:380px;max-width:92vw;box-shadow:0 32px 80px rgba(0,0,0,.6)}
+.auth-box h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;text-align:center}
+.auth-box p.sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:28px}
+.auth-field{margin-bottom:14px}
+.auth-field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.auth-field input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:11px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.auth-field input:focus{border-color:var(--accent)}
+.auth-link{font-size:12px;color:var(--accent);cursor:pointer;text-align:center;margin-top:16px;display:block;text-decoration:underline}
+.auth-link:hover{color:#818cf8}
+.auth-err{font-size:12px;margin-top:10px;text-align:center;display:none;line-height:1.5}
+/* HEADER */
+.header{display:flex;align-items:center;gap:12px;padding:12px 20px;background:rgba(15,23,42,.92);border-bottom:1px solid rgba(255,255,255,.07);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.header h1{font-size:17px;font-weight:700;background:linear-gradient(135deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.search-box{flex:1;min-width:160px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none}
+.search-box:focus{border-color:var(--accent)}
+.user-badge{font-size:12px;color:var(--muted);white-space:nowrap}
+.user-badge span{color:var(--text);font-weight:600}
+.btn{padding:8px 16px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#4f46e5;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-secondary{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.12)}
+.btn-secondary:hover{background:rgba(255,255,255,.14)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.board{display:flex;gap:16px;padding:20px;min-height:calc(100vh - 60px);align-items:flex-start;overflow-x:auto}
+.column{width:284px;min-width:284px;background:var(--col-bg);border:1px solid var(--col-border);border-radius:18px;backdrop-filter:blur(16px);display:flex;flex-direction:column;max-height:calc(100vh - 100px);transition:box-shadow .2s}
+.column.drag-over{box-shadow:0 0 0 2px var(--accent),0 8px 32px rgba(99,102,241,.2)}
+.col-header{padding:13px 13px 9px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.col-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.col-title{flex:1;font-size:13px;font-weight:600;background:transparent;border:none;color:var(--text);outline:none}
+.col-count{font-size:11px;color:var(--muted);background:rgba(255,255,255,.07);padding:2px 7px;border-radius:20px}
+.col-btn{width:26px;height:26px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.col-btn:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:7px}
+.cards::-webkit-scrollbar{width:4px}
+.cards::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.add-card-btn{margin:0 8px 8px;padding:9px;border:1.5px dashed rgba(255,255,255,.1);border-radius:11px;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;transition:all .2s;text-align:center;font-family:inherit}
+.add-card-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(99,102,241,.06)}
+.card{border-radius:13px;padding:11px;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative;user-select:none;border:3px solid transparent}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.card.dragging{opacity:.4;transform:rotate(2deg) scale(.97)}
+.card.alert-24h{animation:blink-y 1.2s ease-in-out infinite;border-color:#eab308!important}
+.card.alert-1h{animation:blink-o 0.5s ease-in-out infinite;border-color:#f97316!important}
+.card.alert-overdue{animation:blink-r 0.35s ease-in-out infinite;border-color:#ef4444!important}
+.priority-low{border-left:5px solid #06b6d4}
+.priority-normal{border-left:5px solid #6366f1}
+.priority-high{border-left:5px solid #f97316}
+.priority-urgent{border-left:5px solid #ef4444}
+.card-title{font-size:13px;font-weight:600;color:#1e293b;line-height:1.4;margin-bottom:5px;word-break:break-word}
+.card-body{font-size:11px;color:#475569;line-height:1.5;word-break:break-word;margin-bottom:7px;white-space:pre-wrap;max-height:54px;overflow:hidden}
+.card-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:3px;margin-bottom:5px}
+.card-due{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:rgba(0,0,0,.1);color:#334155}
+.card-due.overdue{background:rgba(239,68,68,.25);color:#b91c1c;font-weight:700}
+.card-due.warn24{background:rgba(234,179,8,.25);color:#854d0e;font-weight:700}
+.card-due.warn1{background:rgba(249,115,22,.3);color:#9a3412;font-weight:700}
+.card-tags{display:flex;gap:3px;flex-wrap:wrap}
+.card-tag{font-size:9px;padding:1px 5px;border-radius:20px;background:rgba(0,0,0,.1);color:#475569}
+.card-meta{font-size:9px;color:#64748b;margin-top:4px;line-height:1.6}
+.card-actions{display:flex;gap:3px;margin-top:6px;justify-content:flex-end}
+.card-action{width:24px;height:24px;border-radius:7px;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;background:rgba(0,0,0,.1);color:#475569}
+.card-action:hover{background:rgba(0,0,0,.2);color:#1e293b}
+.p-badge{font-size:9px;padding:1px 5px;border-radius:10px;font-weight:600;margin-bottom:5px;display:inline-block}
+.p-low{background:rgba(6,182,212,.15);color:#0891b2}.p-normal{background:rgba(99,102,241,.15);color:#6366f1}
+.p-high{background:rgba(249,115,22,.15);color:#ea580c}.p-urgent{background:rgba(239,68,68,.2);color:#dc2626}
+.add-col{width:200px;min-width:200px;border:2px dashed rgba(255,255,255,.1);border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s;padding:24px;color:var(--muted);font-size:13px}
+.add-col:hover{border-color:var(--accent);color:var(--accent);background:rgba(99,102,241,.05)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.modal{background:#111827;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:22px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,.6);margin:auto}
+.modal h2{font-size:15px;font-weight:700;margin-bottom:18px;color:var(--text)}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.form-group input,.form-group textarea,.form-group select{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--accent)}
+.form-group select option{background:#1e293b}
+.form-group textarea{resize:vertical;min-height:72px}
+.form-row{display:flex;gap:10px}.form-row .form-group{flex:1}
+.color-picker{display:flex;gap:6px;flex-wrap:wrap}
+.color-opt{width:28px;height:28px;border-radius:7px;cursor:pointer;border:3px solid transparent;transition:all .15s}
+.color-opt.selected{border-color:var(--accent);transform:scale(1.15)}
+.tag-row{display:flex;gap:7px}
+.tags-preview{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.tag-chip{font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(99,102,241,.2);color:#a5b4fc;cursor:pointer}
+.tag-chip:hover{background:rgba(239,68,68,.2);color:#fca5a5}
+.modal-actions{display:flex;gap:8px;margin-top:20px}
+.modal-actions .btn{flex:1}
+.detail-modal{max-width:540px}
+.detail-section{margin-bottom:16px}
+.detail-section h3{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:5px}
+.detail-info{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}
+.detail-info dt{color:var(--muted)}.detail-info dd{color:var(--text);font-weight:500}
+.history-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+.history-item{background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;font-size:11px}
+.history-action{font-weight:600;color:#a5b4fc}.history-time{color:var(--muted);float:right}
+.history-who{color:var(--text)}.history-diff{color:var(--muted);margin-top:3px;font-size:10px}
+.loading{text-align:center;padding:60px;color:var(--muted);font-size:14px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between}
+.toggle{position:relative;width:42px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.15);border-radius:24px;cursor:pointer;transition:.2s}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider:before{transform:translateX(18px)}
+.hidden{display:none}
+@media(max-width:600px){.header{padding:10px 12px}.board{padding:12px;gap:12px}.column{width:260px;min-width:260px}.modal{padding:16px}.detail-info{grid-template-columns:1fr}}
+</style>
+</head>
+<body><!-- LOADING -->
+<div id="loading-screen">🔄 読み込み中…</div>
+
+<!-- LOGIN -->
+<div id="login-screen" class="auth-screen hidden">
+  <div class="auth-box">
+    <h1>🗂 カンバンボード</h1>
+    <p class="sub">社内共有ボードにログインしてください</p>
+    <div class="auth-field"><label>メールアドレス</label><input id="login-email" type="email" placeholder="例：matsumoto@company.co.jp" autocomplete="email"></div>
+    <div class="auth-field"><label>パスワード</label><input id="login-pw" type="password" placeholder="パスワードを入力" autocomplete="current-password"></div>
+    <button id="login-btn" class="btn btn-primary" style="width:100%;padding:12px;margin-top:8px" onclick="doLogin()">ログイン</button>
+    <p id="login-err" class="auth-err"></p>
+    <span id="signup-link" class="auth-link hidden" onclick="showSignupScreen()">アカウントを新規作成する</span>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px">アカウントがない場合は管理者にお問い合わせください</p>
+  </div>
+</div>
+
+<!-- SIGNUP -->
+<div id="signup-screen" class="auth-screen hidden">
+  <div class="auth-box">
+    <h1>🗂 新規登録</h1>
+    <p class="sub">アカウント情報を入力してください</p>
+    <div class="auth-field"><label>お名前 *</label><input id="signup-name" type="text" placeholder="例：松本 太郎" autocomplete="name"></div>
+    <div class="auth-field"><label>部署</label><input id="signup-dept" type="text" placeholder="例：営業部" autocomplete="organization"></div>
+    <div class="auth-field"><label>メールアドレス *</label><input id="signup-email" type="email" placeholder="例：matsumoto@company.co.jp" autocomplete="email"></div>
+    <div class="auth-field"><label>パスワード *（8文字以上）</label><input id="signup-pw" type="password" placeholder="パスワード" autocomplete="new-password"></div>
+    <div class="auth-field"><label>パスワード確認 *</label><input id="signup-pw2" type="password" placeholder="パスワードを再入力" autocomplete="new-password"></div>
+    <button id="signup-btn" class="btn btn-primary" style="width:100%;padding:12px;margin-top:8px" onclick="doSignup()">登録する</button>
+    <p id="signup-err" class="auth-err"></p>
+    <span class="auth-link" onclick="showLoginScreen()">← ログイン画面に戻る</span>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header" id="main-header" style="display:none">
+  <h1>🗂 カンバンボード</h1>
+  <input class="search-box" id="search-box" type="text" placeholder="🔍 検索…" oninput="onSearch()">
+  <div class="user-badge" id="user-badge"></div>
+  <button class="btn btn-secondary btn-sm" onclick="doLogout()">ログアウト</button>
+</div>
+
+<!-- BOARD -->
+<div class="board" id="board" style="display:none"><div class="loading">🔄 読み込み中…</div></div>
+
+<!-- CARD MODAL -->
+<div class="modal-overlay hidden" id="card-modal" onclick="modalBgClick(event,'card-modal')">
+  <div class="modal">
+    <h2 id="modal-title">カードを追加</h2>
+    <div class="form-group"><label>タイトル *</label><input id="f-title" type="text" placeholder="タスク名・メモのタイトル"></div>
+    <div class="form-group"><label>メモ</label><textarea id="f-body" placeholder="詳細・備考を書く…"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>期限日時</label><input id="f-due" type="datetime-local"></div>
+      <div class="form-group"><label>重要度</label>
+        <select id="f-priority"><option value="low">🔵 低</option><option value="normal" selected>🟣 通常</option><option value="high">🟠 高</option><option value="urgent">🔴 緊急</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label>カラー（付箋）</label><div class="color-picker" id="color-picker"></div></div>
+    <div class="form-group"><label>タグ</label>
+      <div class="tag-row"><input id="f-tag" type="text" placeholder="タグを入力してEnter" style="flex:1"><button class="btn btn-secondary btn-sm" onclick="addTag()">追加</button></div>
+      <div class="tags-preview" id="tags-preview"></div>
+    </div>
+    <div class="form-group toggle-row">
+      <label style="margin:0">期限アラート</label>
+      <label class="toggle"><input type="checkbox" id="f-alert" checked><span class="toggle-slider"></span></label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveCard()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay hidden" id="detail-modal" onclick="modalBgClick(event,'detail-modal')">
+  <div class="modal detail-modal">
+    <h2 id="d-title">カード詳細</h2>
+    <div class="detail-section"><h3>基本情報</h3><dl class="detail-info" id="d-info"></dl></div>
+    <div class="detail-section"><h3>本文</h3><p id="d-body" style="font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6"></p></div>
+    <div class="detail-section"><h3>操作履歴</h3><div class="history-list" id="d-history"><div class="loading">読み込み中…</div></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeDetail()">閉じる</button>
+      <button class="btn btn-primary" id="d-edit-btn">編集</button>
+    </div>
+  </div>
+</div><script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const SUPABASE_URL      = 'https://juycsxyrazzxugunrtaz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_u_bA5aJ6ETThezQtPFGn9w_f3PZtjJH';
+const ALLOW_SIGNUP      = false; // true にすると新規登録リンクを表示
+const DONE_KEYWORDS     = ['完了','done','Done','DONE','finished'];
+// ─────────────────────────────────────────────────────────────
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let state = { columns:[], cards:[] };
+let currentUser = null;
+let searchQuery = '';
+let editingCardId = null, editingColumnId = null;
+let currentTags = [], selectedColor = '#fef9c3';
+let userGestured = false, audioCtx = null, realtimeChannel = null;
+let dragCardId = null, dragSrcColId = null, dragGhost = null, dragOriginEl = null;
+
+const CARD_COLORS=['#fef9c3','#fde68a','#fce7f3','#fbcfe8','#dcfce7','#bbf7d0','#dbeafe','#bfdbfe','#ede9fe','#ddd6fe','#ffedd5','#fed7aa','#fee2e2','#fecaca','#f1f5f9','#e2e8f0'];
+const PRIORITY_LABEL={low:'🔵 低',normal:'🟣 通常',high:'🟠 高',urgent:'🔴 緊急'};
+const PRIORITY_CLASS={low:'p-low',normal:'p-normal',high:'p-high',urgent:'p-urgent'};
+const ACTION_LABELS={created:'作成',edited:'編集',moved:'移動',deleted:'削除'};
+
+const qs=s=>document.querySelector(s);
+const fmt=dt=>dt?new Date(dt).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.addEventListener('click',()=>{userGestured=true;},{once:true,passive:true});
+
+// ─── AUTH UI HELPERS ──────────────────────────────────────────
+function setAuthErr(id,msg,ok=false){const el=qs('#'+id);el.textContent=msg;el.style.color=ok?'#10b981':'#ef4444';el.style.display=msg?'':'none';}
+function setBtn(id,dis,txt){const b=qs('#'+id);if(b){b.disabled=dis;b.textContent=txt;}}
+function showLoginScreen(){qs('#loading-screen').classList.add('hidden');qs('#login-screen').classList.remove('hidden');qs('#signup-screen').classList.add('hidden');qs('#main-header').style.display='none';qs('#board').style.display='none';if(ALLOW_SIGNUP)qs('#signup-link').classList.remove('hidden');}
+function showSignupScreen(){qs('#login-screen').classList.add('hidden');qs('#signup-screen').classList.remove('hidden');}
+function showApp(){qs('#loading-screen').classList.add('hidden');qs('#login-screen').classList.add('hidden');qs('#signup-screen').classList.add('hidden');qs('#main-header').style.display='';qs('#board').style.display='';qs('#user-badge').innerHTML=`<span>${esc(currentUser.name)}</span>（${esc(currentUser.department||'—')}）`;init();}
+
+// ─── AUTH FUNCTIONS ───────────────────────────────────────────
+async function doLogin(){
+  const email=qs('#login-email').value.trim(), pw=qs('#login-pw').value;
+  if(!email||!pw){setAuthErr('login-err','メールアドレスとパスワードを入力してください');return;}
+  setAuthErr('login-err','');setBtn('login-btn',true,'ログイン中…');
+  try{
+    const{error}=await db.auth.signInWithPassword({email,password:pw});
+    if(error)throw error;
+  }catch(e){setAuthErr('login-err',e.message==='Invalid login credentials'?'メールアドレスまたはパスワードが違います':e.message);}
+  finally{setBtn('login-btn',false,'ログイン');}
+}
+async function doSignup(){
+  const name=qs('#signup-name').value.trim(),dept=qs('#signup-dept').value.trim();
+  const email=qs('#signup-email').value.trim(),pw=qs('#signup-pw').value,pw2=qs('#signup-pw2').value;
+  if(!name||!email||!pw){setAuthErr('signup-err','必須項目（*）を入力してください');return;}
+  if(pw!==pw2){setAuthErr('signup-err','パスワードが一致しません');return;}
+  if(pw.length<8){setAuthErr('signup-err','パスワードは8文字以上で入力してください');return;}
+  setAuthErr('signup-err','');setBtn('signup-btn',true,'登録中…');
+  try{
+    const{error}=await db.auth.signUp({email,password:pw,options:{data:{name,department:dept}}});
+    if(error)throw error;
+    setAuthErr('signup-err','✅ 確認メールを送信しました。メールのリンクをクリックしてからログインしてください。',true);
+  }catch(e){setAuthErr('signup-err',e.message);}
+  finally{setBtn('signup-btn',false,'登録する');}
+}
+async function doLogout(){if(realtimeChannel)db.removeChannel(realtimeChannel);await db.auth.signOut();}
+
+// ─── AUTH STATE (Supabase Auth) ───────────────────────────────
+// タイムアウト: 6秒以内にセッション確認できなければログイン画面へ
+let _authResolved = false;
+const _authTimeout = setTimeout(()=>{
+  if(!_authResolved){
+    console.warn('[KanbanBoard] Auth state timeout - showing login screen');
+    _authResolved = true;
+    showLoginScreen();
+  }
+}, 6000);
+
+db.auth.onAuthStateChange(async(event,session)=>{
+  if(_authResolved && event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED') return;
+  clearTimeout(_authTimeout);
+  _authResolved = true;
+  if(session&&session.user){
+    const{data:profile}=await db.from('users').select('*').eq('id',session.user.id).maybeSingle();
+    currentUser=profile||{id:session.user.id,name:session.user.email,department:'',role:'member'};
+    showApp();
+  }else{
+    currentUser=null;showLoginScreen();
+  }
+});
+
+// ─── DB OPS ──────────────────────────────────────────────────
+async function loadAll(){
+  const[{data:cols},{data:cards}]=await Promise.all([db.from('columns').select('*').order('sort_order'),db.from('cards').select('*').eq('status','active').order('sort_order')]);
+  state.columns=cols||[];state.cards=cards||[];
+}
+async function addHistory(cardId,action,before,after){await db.from('card_history').insert({card_id:cardId,action,before_value:before,after_value:after,operated_by:currentUser.id});}
+async function dbAddCard(data){const{data:card,error}=await db.from('cards').insert({...data,created_by:currentUser.id,updated_by:currentUser.id}).select().single();if(error)throw error;await addHistory(card.id,'created',null,{title:card.title});return card;}
+async function dbUpdateCard(id,data){const old=state.cards.find(c=>c.id===id);const{error}=await db.from('cards').update({...data,updated_by:currentUser.id}).eq('id',id);if(error)throw error;await addHistory(id,'edited',{title:old?.title},{title:data.title||old?.title,...(data.column_id?{column_id:data.column_id}:{})});}
+async function dbSoftDelete(id){const old=state.cards.find(c=>c.id===id);const{error}=await db.from('cards').update({status:'deleted',updated_by:currentUser.id}).eq('id',id);if(error)throw error;await addHistory(id,'deleted',{title:old?.title},null);}
+async function dbAddColumn(data){const{error}=await db.from('columns').insert(data);if(error)throw error;}
+async function dbUpdateColumn(id,data){const{error}=await db.from('columns').update(data).eq('id',id);if(error)throw error;}
+async function dbDeleteColumn(id){const{error}=await db.from('columns').delete().eq('id',id);if(error)throw error;}
+
+// ─── REALTIME ─────────────────────────────────────────────────
+function subscribeRealtime(){realtimeChannel=db.channel('kanban_shared').on('postgres_changes',{event:'*',schema:'public',table:'cards'},async()=>{await loadAll();render();}).on('postgres_changes',{event:'*',schema:'public',table:'columns'},async()=>{await loadAll();render();}).subscribe();}
+
+// ─── ALERTS ───────────────────────────────────────────────────
+function isDoneCol(colId){const col=state.columns.find(c=>c.id===colId);return col&&DONE_KEYWORDS.some(k=>col.title.includes(k));}
+function getAlertState(card){if(!card.due_at||!card.alert_enabled||isDoneCol(card.column_id))return null;const diff=new Date(card.due_at)-Date.now();if(diff<0)return'overdue';if(diff<3600000)return'1h';if(diff<86400000)return'24h';return null;}
+function playSound(){if(!userGestured)return;try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.connect(gain);gain.connect(audioCtx.destination);osc.frequency.value=880;gain.gain.setValueAtTime(.3,audioCtx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.4);osc.start();osc.stop(audioCtx.currentTime+.4);}catch{}}
+function checkAlerts(){let played=false;state.cards.filter(c=>c.status==='active').forEach(c=>{const st=getAlertState(c);const el=document.querySelector(`.card[data-card-id="${c.id}"]`);if(!el)return;el.classList.remove('alert-24h','alert-1h','alert-overdue');if(st==='24h')el.classList.add('alert-24h');if(st==='1h'){el.classList.add('alert-1h');if(!played){playSound();played=true;}}if(st==='overdue'){el.classList.add('alert-overdue');if(!played){playSound();played=true;}}});}
+
+// ─── RENDER ───────────────────────────────────────────────────
+function render(){const board=qs('#board');board.innerHTML='';const q=searchQuery.toLowerCase();for(const col of state.columns){const cards=state.cards.filter(c=>c.column_id===col.id&&c.status==='active'&&(!q||(c.title+c.body).toLowerCase().includes(q)));board.appendChild(createColEl(col,cards));}const ac=document.createElement('div');ac.className='add-col';ac.innerHTML='<div style="font-size:28px">＋</div><div>列を追加</div>';ac.onclick=addColumn;board.appendChild(ac);setTimeout(checkAlerts,100);}
+function createColEl(col,cards){const el=document.createElement('div');el.className='column';el.dataset.colId=col.id;const inp=document.createElement('input');inp.className='col-title';inp.value=col.title;inp.onchange=async()=>{await dbUpdateColumn(col.id,{title:inp.value});};const hdr=document.createElement('div');hdr.className='col-header';const dot=document.createElement('div');dot.className='col-dot';dot.style.background=col.color;const cnt=document.createElement('span');cnt.className='col-count';cnt.textContent=cards.length;const delBtn=document.createElement('button');delBtn.className='col-btn';delBtn.title='列を削除';delBtn.textContent='✕';delBtn.onclick=()=>deleteColumn(col.id);hdr.append(dot,inp,cnt,delBtn);const cardsEl=document.createElement('div');cardsEl.className='cards';cardsEl.dataset.colId=col.id;cards.forEach(c=>cardsEl.appendChild(createCardEl(c,col.id)));setupColDrop(el,cardsEl,col.id);const addBtn=document.createElement('button');addBtn.className='add-card-btn';addBtn.textContent='＋ カードを追加';addBtn.onclick=()=>openModal(col.id);el.append(hdr,cardsEl,addBtn);return el;}
+function createCardEl(card,colId){const el=document.createElement('div');el.className='card priority-'+(card.priority||'normal');el.dataset.cardId=card.id;el.dataset.colId=colId;el.style.background=card.color||'#fef9c3';const al=getAlertState(card);if(al==='24h')el.classList.add('alert-24h');if(al==='1h')el.classList.add('alert-1h');if(al==='overdue')el.classList.add('alert-overdue');const overdue=card.due_at&&new Date(card.due_at)<new Date();const warn1=card.due_at&&!overdue&&(new Date(card.due_at)-Date.now())<3600000;const warn24=card.due_at&&!overdue&&!warn1&&(new Date(card.due_at)-Date.now())<86400000;const dueCls=overdue?'overdue':warn1?'warn1':warn24?'warn24':'';const tagsHtml=(card.tags||[]).map(t=>`<span class="card-tag">${esc(t)}</span>`).join('');const pLabel=PRIORITY_LABEL[card.priority||'normal']||'🟣 通常';const pClass=PRIORITY_CLASS[card.priority||'normal']||'p-normal';el.innerHTML=`<div class="p-badge ${pClass}">${pLabel}</div><div class="card-title">${esc(card.title)}</div>${card.body?`<div class="card-body">${esc(card.body)}</div>`:''}<div class="card-footer">${card.due_at?`<span class="card-due ${dueCls}">📅 ${fmt(card.due_at)}</span>`:''}<div class="card-tags">${tagsHtml}</div></div><div class="card-meta">作成: ${esc(card._creator||'—')} | 更新: ${esc(card._updater||'—')}</div><div class="card-actions"><button class="card-action" title="詳細" onclick="openDetail('${card.id}')">🔍</button><button class="card-action" title="編集" onclick="openEditModal('${card.id}')">✏️</button><button class="card-action" title="削除" onclick="deleteCard('${card.id}')">🗑️</button></div>`;setupCardDrag(el,card,colId);return el;}
+
+// ─── DRAG & DROP ──────────────────────────────────────────────
+function setupCardDrag(el,card,colId){el.addEventListener('pointerdown',e=>{if(e.target.tagName==='BUTTON')return;e.preventDefault();el.setPointerCapture(e.pointerId);dragCardId=card.id;dragSrcColId=colId;dragOriginEl=el;const rect=el.getBoundingClientRect();dragGhost=el.cloneNode(true);dragGhost.style.cssText=`width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;position:fixed;pointer-events:none;z-index:9998;opacity:.85;transform:rotate(2deg) scale(.98)`;document.body.appendChild(dragGhost);el.style.opacity='.3';el.addEventListener('pointermove',onPtrMove);el.addEventListener('pointerup',onPtrUp);});}
+function onPtrMove(e){if(!dragGhost)return;dragGhost.style.left=(e.clientX-parseInt(dragGhost.style.width)/2)+'px';dragGhost.style.top=(e.clientY-20)+'px';document.querySelectorAll('.column.drag-over').forEach(c=>c.classList.remove('drag-over'));const col=document.elementFromPoint(e.clientX,e.clientY)?.closest('.column');if(col)col.classList.add('drag-over');}
+async function onPtrUp(e){this.removeEventListener('pointermove',onPtrMove);this.removeEventListener('pointerup',onPtrUp);if(dragOriginEl)dragOriginEl.style.opacity='';if(dragGhost){dragGhost.remove();dragGhost=null;}document.querySelectorAll('.column.drag-over').forEach(c=>c.classList.remove('drag-over'));if(!dragCardId)return;const col=document.elementFromPoint(e.clientX,e.clientY)?.closest('.column');const tgtColId=col?.dataset.colId;if(tgtColId&&tgtColId!==dragSrcColId){const cardEls=[...col.querySelector('.cards').querySelectorAll('.card')];let idx=cardEls.length;for(let i=0;i<cardEls.length;i++){const r=cardEls[i].getBoundingClientRect();if(e.clientY<r.top+r.height/2){idx=i;break;}}const isDone=isDoneCol(tgtColId);await dbUpdateCard(dragCardId,{column_id:tgtColId,sort_order:idx,...(isDone?{completed_at:new Date().toISOString()}:{completed_at:null})});await addHistory(dragCardId,'moved',{column_id:dragSrcColId},{column_id:tgtColId});await loadAll();render();}dragCardId=null;dragSrcColId=null;dragOriginEl=null;}
+function setupColDrop(colEl){colEl.addEventListener('dragover',e=>{e.preventDefault();colEl.classList.add('drag-over');});colEl.addEventListener('dragleave',e=>{if(!colEl.contains(e.relatedTarget))colEl.classList.remove('drag-over');});}
+
+// ─── COLUMN ACTIONS ───────────────────────────────────────────
+async function addColumn(){const colors=['#6366f1','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4'];const color=colors[state.columns.length%colors.length];await dbAddColumn({title:'📋 新しい列',color,sort_order:state.columns.length});await loadAll();render();}
+async function deleteColumn(colId){const col=state.columns.find(c=>c.id===colId);const cnt=state.cards.filter(c=>c.column_id===colId&&c.status==='active').length;if(!confirm(`「${col?.title}」を削除しますか？${cnt>0?`\n（${cnt}枚のカードも削除済み扱いになります）`:''}`))return;if(cnt>0)await db.from('cards').update({status:'deleted'}).eq('column_id',colId);await dbDeleteColumn(colId);await loadAll();render();}
+
+// ─── MODAL ────────────────────────────────────────────────────
+function openModal(colId){editingCardId=null;editingColumnId=colId;currentTags=[];selectedColor=CARD_COLORS[0];qs('#modal-title').textContent='カードを追加';qs('#f-title').value='';qs('#f-body').value='';qs('#f-due').value='';qs('#f-priority').value='normal';qs('#f-alert').checked=true;renderColorPicker();renderTagsPreview();qs('#card-modal').classList.remove('hidden');setTimeout(()=>qs('#f-title').focus(),80);}
+function openEditModal(cardId){const card=state.cards.find(c=>c.id===cardId);if(!card)return;editingCardId=cardId;editingColumnId=card.column_id;currentTags=[...(card.tags||[])];selectedColor=card.color||CARD_COLORS[0];qs('#modal-title').textContent='カードを編集';qs('#f-title').value=card.title;qs('#f-body').value=card.body||'';qs('#f-due').value=card.due_at?card.due_at.slice(0,16):'';qs('#f-priority').value=card.priority||'normal';qs('#f-alert').checked=card.alert_enabled!==false;renderColorPicker();renderTagsPreview();qs('#card-modal').classList.remove('hidden');}
+function closeModal(){qs('#card-modal').classList.add('hidden');}
+async function saveCard(){const title=qs('#f-title').value.trim();if(!title){qs('#f-title').focus();return;}const data={title,body:qs('#f-body').value.trim(),due_at:qs('#f-due').value||null,priority:qs('#f-priority').value,color:selectedColor,tags:currentTags,alert_enabled:qs('#f-alert').checked};if(editingCardId)await dbUpdateCard(editingCardId,data);else await dbAddCard({...data,column_id:editingColumnId,sort_order:9999});closeModal();await loadAll();render();}
+function renderColorPicker(){qs('#color-picker').innerHTML=CARD_COLORS.map(c=>`<div class="color-opt${c===selectedColor?' selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`).join('');}
+function selectColor(c){selectedColor=c;renderColorPicker();}
+function addTag(){const inp=qs('#f-tag'),val=inp.value.trim();if(val&&!currentTags.includes(val)){currentTags.push(val);renderTagsPreview();}inp.value='';}
+qs('#f-tag').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag();}});
+function renderTagsPreview(){qs('#tags-preview').innerHTML=currentTags.map(t=>`<span class="tag-chip" title="クリックで削除" onclick="removeTag('${esc(t)}')">${esc(t)} ✕</span>`).join('');}
+function removeTag(t){currentTags=currentTags.filter(x=>x!==t);renderTagsPreview();}
+
+// ─── DETAIL MODAL ─────────────────────────────────────────────
+async function openDetail(cardId){const card=state.cards.find(c=>c.id===cardId);if(!card)return;qs('#d-title').textContent=card.title;qs('#d-body').textContent=card.body||'（なし）';qs('#d-edit-btn').onclick=()=>{closeDetail();openEditModal(cardId);};qs('#d-info').innerHTML=`<dt>重要度</dt><dd>${PRIORITY_LABEL[card.priority||'normal']}</dd><dt>期限</dt><dd>${fmt(card.due_at)}</dd><dt>ステータス</dt><dd>${card.status}</dd><dt>アラート</dt><dd>${card.alert_enabled?'有効':'無効'}</dd><dt>作成日時</dt><dd>${fmt(card.created_at)}</dd><dt>更新日時</dt><dd>${fmt(card.updated_at)}</dd><dt>完了日時</dt><dd>${fmt(card.completed_at)}</dd><dt>タグ</dt><dd>${(card.tags||[]).join(', ')||'—'}</dd>`;qs('#detail-modal').classList.remove('hidden');const hist=qs('#d-history');hist.innerHTML='<div class="loading">読み込み中…</div>';const{data:rows}=await db.from('card_history').select('*,user:operated_by(name)').eq('card_id',cardId).order('operated_at',{ascending:false}).limit(30);hist.innerHTML=(rows&&rows.length?rows.map(r=>`<div class="history-item"><span class="history-action">${ACTION_LABELS[r.action]||r.action}</span><span class="history-time">${fmt(r.operated_at)}</span><br><span class="history-who">👤 ${esc(r.user?.name||'不明')}</span>${r.before_value||r.after_value?`<div class="history-diff">${r.before_value?JSON.stringify(r.before_value):''} ${r.after_value?'→ '+JSON.stringify(r.after_value):''}</div>`:''}</div>`).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">履歴なし</div>');}
+function closeDetail(){qs('#detail-modal').classList.add('hidden');}
+async function deleteCard(id){const card=state.cards.find(c=>c.id===id);if(!confirm(`「${card?.title}」を削除しますか？\n（削除済み扱いになります）`))return;await dbSoftDelete(id);await loadAll();render();}
+
+// ─── SEARCH & KEYBOARD ────────────────────────────────────────
+function onSearch(){searchQuery=qs('#search-box').value;render();}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&qs('#login-screen')&&!qs('#login-screen').classList.contains('hidden'))doLogin();if(e.key==='Escape'){closeModal();closeDetail();}});
+function modalBgClick(e,id){if(e.target===qs('#'+id))id==='card-modal'?closeModal():closeDetail();}
+
+// ─── INIT ─────────────────────────────────────────────────────
+async function init(){
+  try{
+    await loadAll();
+    const userIds=[...new Set(state.cards.flatMap(c=>[c.created_by,c.updated_by]).filter(Boolean))];
+    if(userIds.length){const{data:users}=await db.from('users').select('id,name').in('id',userIds);const umap=Object.fromEntries((users||[]).map(u=>[u.id,u.name]));state.cards.forEach(c=>{c._creator=umap[c.created_by]||'—';c._updater=umap[c.updated_by]||'—';});}
+    render();subscribeRealtime();setInterval(checkAlerts,60000);
+  }catch(e){qs('#board').innerHTML=`<div class="loading" style="color:#ef4444">⚠️ 接続エラー: ${esc(e.message)}</div>`;}
+}
+</script>
+</body>
+</html>
