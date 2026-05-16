@@ -125,7 +125,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 </style>
 </head>
 <body><!-- LOADING -->
-<div id="loading-screen">🔄 読み込み中…</div>
+<div id="loading-screen"><div style="text-align:center"><div style="font-size:28px;margin-bottom:12px">🔄</div><div id="loading-msg" style="font-size:14px;color:#64748b">読み込み中…</div></div></div>
 
 <!-- LOGIN -->
 <div id="login-screen" class="auth-screen hidden">
@@ -273,7 +273,9 @@ async function doSignup(){
 async function doLogout(){if(realtimeChannel)db.removeChannel(realtimeChannel);await db.auth.signOut();}
 
 // ─── AUTH STATE (Supabase Auth) ───────────────────────────────
-// タイムアウト: 6秒以内にセッション確認できなければログイン画面へ
+function setLoadingMsg(msg){const el=document.getElementById('loading-msg');if(el)el.textContent=msg;console.log('[KanbanBoard]',msg);}
+
+// タイムアウト: 10秒以内にセッション確認できなければログイン画面へ
 let _authResolved = false;
 const _authTimeout = setTimeout(()=>{
   if(!_authResolved){
@@ -281,17 +283,32 @@ const _authTimeout = setTimeout(()=>{
     _authResolved = true;
     showLoginScreen();
   }
-}, 6000);
+}, 10000);
+
+setLoadingMsg('認証状態を確認中…');
 
 db.auth.onAuthStateChange(async(event,session)=>{
+  console.log('[KanbanBoard] onAuthStateChange:', event, session ? 'session=あり' : 'session=なし');
   if(_authResolved && event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED') return;
   clearTimeout(_authTimeout);
   _authResolved = true;
   if(session&&session.user){
-    const{data:profile}=await db.from('users').select('*').eq('id',session.user.id).maybeSingle();
-    currentUser=profile||{id:session.user.id,name:session.user.email,department:'',role:'member'};
-    showApp();
+    setLoadingMsg('ユーザー情報を取得中…');
+    try{
+      const{data:profile,error:profileErr}=await db.from('users').select('*').eq('id',session.user.id).maybeSingle();
+      if(profileErr) console.warn('[KanbanBoard] users取得エラー（続行）:', profileErr.message);
+      currentUser=profile||{id:session.user.id,name:session.user.email,department:'',role:'member'};
+      console.log('[KanbanBoard] currentUser設定完了:', currentUser.name);
+      setLoadingMsg('ボードを読み込み中…');
+      showApp();
+    }catch(e){
+      console.error('[KanbanBoard] onAuthStateChange内エラー:', e);
+      // フォールバック: エラーでも続行
+      currentUser={id:session.user.id,name:session.user.email,department:'',role:'member'};
+      showApp();
+    }
   }else{
+    console.log('[KanbanBoard] セッションなし → ログイン画面へ');
     currentUser=null;showLoginScreen();
   }
 });
