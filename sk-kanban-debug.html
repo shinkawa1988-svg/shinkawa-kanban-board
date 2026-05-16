@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🗂 カンバンボード DEBUG</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#030712;--text:#f1f5f9;--muted:#64748b;--accent:#6366f1}
+body{font-family:monospace;background:var(--bg);color:var(--text);min-height:100vh}
+#debug-panel{position:fixed;top:0;left:0;right:0;bottom:0;background:#0f172a;z-index:99999;overflow-y:auto;padding:16px;font-size:13px;line-height:1.8}
+#debug-title{font-size:18px;font-weight:bold;color:#6366f1;margin-bottom:16px;border-bottom:1px solid #334155;padding-bottom:8px}
+.step{padding:6px 12px;border-radius:6px;margin-bottom:6px;display:flex;align-items:flex-start;gap:10px}
+.step-ok{background:rgba(16,185,129,.15);border-left:3px solid #10b981}
+.step-warn{background:rgba(234,179,8,.15);border-left:3px solid #eab308}
+.step-err{background:rgba(239,68,68,.15);border-left:3px solid #ef4444}
+.step-info{background:rgba(99,102,241,.1);border-left:3px solid #6366f1}
+.step-running{background:rgba(148,163,184,.1);border-left:3px solid #94a3b8}
+.step-icon{flex-shrink:0;width:20px}
+.step-msg{flex:1;word-break:break-all}
+.step-time{color:var(--muted);font-size:11px;flex-shrink:0}
+#debug-summary{margin-top:16px;padding:12px;background:rgba(255,255,255,.05);border-radius:8px;font-size:12px}
+#debug-error-box{display:none;margin-top:12px;padding:16px;background:rgba(239,68,68,.2);border:1px solid #ef4444;border-radius:8px;font-size:12px;white-space:pre-wrap}
+.section-header{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid #1e293b}
+</style>
+</head>
+<body>
+<div id="debug-panel">
+  <div id="debug-title">🔍 カンバンボード — デバッグ診断</div>
+  <div class="section-header">⚙️ 環境情報</div>
+  <div id="env-info"></div>
+  <div class="section-header">📋 初期化ステップ</div>
+  <div id="steps-container"></div>
+  <div id="debug-error-box"></div>
+  <div id="debug-summary"></div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const SUPABASE_URL      = 'https://juycsxyrazzxugunrtaz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_u_bA5aJ6ETThezQtPFGn9w_f3PZtjJH';
+
+// ─── DEBUG LOGGER ─────────────────────────────────────────────
+const startTime = Date.now();
+const stepLog = [];
+
+function log(msg, status='info', detail=''){
+  const elapsed = Date.now() - startTime;
+  const entry = {msg, status, detail, elapsed};
+  stepLog.push(entry);
+  console.log(`[${elapsed}ms][${status.toUpperCase()}] ${msg}`, detail||'');
+
+  const container = document.getElementById('steps-container');
+  if(!container) return;
+  const icons = {ok:'✅', warn:'⚠️', err:'❌', info:'ℹ️', running:'⏳'};
+  const div = document.createElement('div');
+  div.className = 'step step-' + status;
+  div.innerHTML = `<span class="step-icon">${icons[status]||'•'}</span><span class="step-msg">${escapeHtml(msg)}${detail ? '<br><span style="color:#94a3b8;font-size:11px">'+escapeHtml(String(detail))+'</span>' : ''}</span><span class="step-time">${elapsed}ms</span>`;
+  container.appendChild(div);
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showFatalError(msg, err){
+  const box = document.getElementById('debug-error-box');
+  if(box){
+    box.style.display = 'block';
+    box.innerHTML = '<strong>🚨 致命的エラー</strong><br>' + escapeHtml(msg) + '<br><br>' + escapeHtml(err ? (err.stack || err.message || String(err)) : '');
+  }
+  alert('❌ エラー発生: ' + msg + '\n\n' + (err ? (err.message || String(err)) : ''));
+}
+
+function updateSummary(){
+  const el = document.getElementById('debug-summary');
+  if(!el) return;
+  const ok = stepLog.filter(s=>s.status==='ok').length;
+  const errs = stepLog.filter(s=>s.status==='err').length;
+  const warns = stepLog.filter(s=>s.status==='warn').length;
+  el.innerHTML = `<strong>診断サマリー</strong>: ✅${ok} ⚠️${warns} ❌${errs} | 経過時間: ${Date.now()-startTime}ms`;
+}
+
+// ─── 環境情報 ─────────────────────────────────────────────────
+function showEnvInfo(){
+  const envDiv = document.getElementById('env-info');
+  const info = {
+    'URL': location.href,
+    'Protocol': location.protocol,
+    'Host': location.host,
+    'Pathname': location.pathname,
+    'UserAgent': navigator.userAgent.substring(0,80)+'...',
+    'localStorage': (()=>{try{localStorage.setItem('_dbg','1');localStorage.removeItem('_dbg');return '✅ 利用可能';}catch(e){return '❌ 利用不可: '+e.message;}})(),
+    'sessionStorage': (()=>{try{sessionStorage.setItem('_dbg','1');sessionStorage.removeItem('_dbg');return '✅ 利用可能';}catch(e){return '❌ 利用不可: '+e.message;}})(),
+    'cookieEnabled': navigator.cookieEnabled ? '✅ 有効' : '❌ 無効',
+    'fetch': typeof fetch !== 'undefined' ? '✅ 利用可能' : '❌ 未対応',
+    'WebSocket': typeof WebSocket !== 'undefined' ? '✅ 利用可能' : '❌ 未対応',
+  };
+  envDiv.innerHTML = Object.entries(info).map(([k,v])=>
+    `<div class="step step-info"><span class="step-icon">📌</span><span class="step-msg"><strong>${escapeHtml(k)}</strong>: ${escapeHtml(v)}</span></div>`
+  ).join('');
+}
+
+// ─── STEP 1: Script Start ────────────────────────────────────
+log('📜 Script start — スクリプト開始', 'ok');
+showEnvInfo();
+
+// ─── STEP 2: Check supabase global ───────────────────────────
+log('⏳ Supabase SDK チェック中…', 'running');
+
+function runInit(){
+  // STEP 3: Check supabase global object
+  if(typeof supabase === 'undefined'){
+    log('Supabase グローバルオブジェクトが未定義', 'err', 'CDNからのSDK読み込みに失敗した可能性があります');
+    showFatalError('Supabase SDK が読み込まれていません', null);
+    updateSummary();
+    return;
+  }
+  log('Supabase グローバルオブジェクト確認 ✅', 'ok', 'typeof supabase = ' + typeof supabase);
+
+  // STEP 4: createClient
+  let db;
+  try{
+    log('createClient 実行中…', 'running');
+    const { createClient } = supabase;
+    if(typeof createClient !== 'function'){
+      throw new Error('createClient が関数ではありません: ' + typeof createClient);
+    }
+    db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    log('createClient 成功 ✅', 'ok', 'db オブジェクト作成完了');
+  }catch(e){
+    log('createClient 失敗', 'err', e.message);
+    showFatalError('Supabase クライアント初期化失敗', e);
+    updateSummary();
+    return;
+  }
+
+  // STEP 5: Check db.auth
+  if(!db.auth){
+    log('db.auth が undefined', 'err', 'Supabase クライアントの auth プロパティが存在しません');
+    showFatalError('db.auth が存在しません', null);
+    updateSummary();
+    return;
+  }
+  log('db.auth 確認 ✅', 'ok');
+
+  // STEP 6: getSession
+  log('getSession 開始…', 'running');
+  const getSessionTimeout = setTimeout(()=>{
+    log('getSession タイムアウト (5秒)', 'err', 'Supabase への通信がタイムアウトしました。ネットワークまたはCORSの問題の可能性があります');
+    showFatalError('getSession がタイムアウトしました（5秒）', null);
+    updateSummary();
+  }, 5000);
+
+  db.auth.getSession().then(({data, error})=>{
+    clearTimeout(getSessionTimeout);
+    if(error){
+      log('getSession エラー', 'err', error.message);
+      showFatalError('getSession でエラーが発生しました', error);
+      updateSummary();
+      return;
+    }
+    log('getSession 完了 ✅', 'ok', 'session: ' + (data.session ? 'あり (user: '+data.session.user.email+')' : 'なし（未ログイン）'));
+
+    // STEP 7: Test REST API connectivity
+    log('REST API 疎通テスト中 (columns テーブル)…', 'running');
+    const restTimeout = setTimeout(()=>{
+      log('REST API タイムアウト (5秒)', 'err', 'Supabase REST APIへの通信がタイムアウト。RLSかネットワーク問題の可能性');
+      updateSummary();
+    }, 5000);
+
+    db.from('columns').select('id').limit(1).then(({data:cols, error:colErr})=>{
+      clearTimeout(restTimeout);
+      if(colErr){
+        log('REST API エラー (columns)', 'err', colErr.message + ' | code: ' + colErr.code);
+        showFatalError('REST API (columns) でエラーが発生しました', colErr);
+      }else{
+        log('REST API 疎通 ✅', 'ok', '取得行数: ' + (cols ? cols.length : 0));
+      }
+
+      // STEP 8: Test auth/users table
+      log('users テーブル疎通テスト中…', 'running');
+      db.from('users').select('id').limit(1).then(({data:users, error:usersErr})=>{
+        if(usersErr){
+          log('users テーブル アクセスエラー', 'warn', usersErr.message);
+        }else{
+          log('users テーブル ✅', 'ok', '取得行数: ' + (users ? users.length : 0));
+        }
+
+        // STEP 9: onAuthStateChange
+        log('onAuthStateChange リスナー設定中…', 'running');
+        try{
+          db.auth.onAuthStateChange((event, session)=>{
+            log('onAuthStateChange 発火 ✅', 'ok', 'event: ' + event + ' | session: ' + (session ? session.user.email : 'null'));
+            updateSummary();
+          });
+          log('onAuthStateChange 登録完了 ✅', 'ok');
+        }catch(e){
+          log('onAuthStateChange 登録失敗', 'err', e.message);
+          showFatalError('onAuthStateChange 設定失敗', e);
+        }
+
+        // STEP 10: Realtime check
+        log('Realtime WebSocket 接続テスト中…', 'running');
+        try{
+          const ch = db.channel('debug-test');
+          ch.subscribe((status)=>{
+            if(status === 'SUBSCRIBED'){
+              log('Realtime WebSocket 接続 ✅', 'ok', 'status: ' + status);
+              db.removeChannel(ch);
+            }else if(status === 'CHANNEL_ERROR'){
+              log('Realtime WebSocket エラー', 'warn', 'status: ' + status + ' — Realtimeは無効でも基本機能は動作します');
+            }
+          });
+        }catch(e){
+          log('Realtime 初期化失敗', 'warn', e.message);
+        }
+
+        // Final summary
+        setTimeout(()=>{
+          log('🏁 デバッグ診断完了', 'ok', '上記ログを確認してください');
+          updateSummary();
+          const summary = document.getElementById('debug-summary');
+          if(summary){
+            const errs = stepLog.filter(s=>s.status==='err');
+            if(errs.length === 0){
+              summary.innerHTML += '<br><span style="color:#10b981">✅ 接続に問題は検出されませんでした。本番ファイル(sk-kanban-index.html)の確認が必要です。</span>';
+            }else{
+              summary.innerHTML += '<br><span style="color:#ef4444">❌ エラーが検出されました。上記の赤いステップを確認してください。</span>';
+            }
+          }
+        }, 3000);
+
+        updateSummary();
+      }).catch(e=>{
+        log('users テーブル例外', 'err', e.message);
+        updateSummary();
+      });
+
+    }).catch(e=>{
+      clearTimeout(restTimeout);
+      log('REST API 例外', 'err', e.message);
+      showFatalError('REST API で例外が発生しました', e);
+      updateSummary();
+    });
+
+  }).catch(e=>{
+    clearTimeout(getSessionTimeout);
+    log('getSession 例外', 'err', e.message);
+    showFatalError('getSession で例外が発生しました', e);
+    updateSummary();
+  });
+}
+
+// ─── Wait for Supabase SDK ────────────────────────────────────
+log('DOM + SDK 読み込み待機中…', 'running');
+document.addEventListener('DOMContentLoaded', ()=>{
+  log('DOMContentLoaded 発火 ✅', 'ok');
+
+  // SDK may load async — poll for it
+  let tries = 0;
+  const maxTries = 50; // 5秒
+  const checkSDK = setInterval(()=>{
+    tries++;
+    if(typeof supabase !== 'undefined' && typeof supabase.createClient === 'function'){
+      clearInterval(checkSDK);
+      log('Supabase SDK 読み込み完了 ✅ (' + (tries*100) + 'ms後)', 'ok');
+      runInit();
+    }else if(tries >= maxTries){
+      clearInterval(checkSDK);
+      log('Supabase SDK 読み込みタイムアウト (5秒)', 'err', 'CDN接続またはネットワークの問題の可能性があります');
+      showFatalError('Supabase SDK が5秒以内に読み込まれませんでした', null);
+      updateSummary();
+    }
+  }, 100);
+});
+
+// ─── Global error catcher ────────────────────────────────────
+window.addEventListener('error', (e)=>{
+  log('グローバルエラー: ' + e.message, 'err', 'file: '+(e.filename||'不明')+' line: '+e.lineno);
+  updateSummary();
+});
+window.addEventListener('unhandledrejection', (e)=>{
+  log('未処理のPromise拒否: ' + (e.reason?.message || String(e.reason)), 'err');
+  updateSummary();
+});
+</script>
+
+<!-- Supabase SDK (同じCDNを使用) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+  onerror="log('Supabase CDN 読み込み失敗 ❌', 'err', 'スクリプトのonerrorイベントが発火'); showFatalError('Supabase CDN からの読み込みに失敗しました', null); updateSummary();">
+</script>
+
+</body>
+</html>
