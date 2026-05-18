@@ -278,9 +278,16 @@ function showApp(){
   // header を表示（flex）
   const hdr = document.getElementById('main-header');
   if(hdr) hdr.style.display='flex';
-  // board を表示（block）
+  // board を表示（flex・横並び確定）
   const brd = document.getElementById('board');
-  if(brd) brd.style.display='block';
+  if(brd){
+    brd.style.display='flex';         // ← CSSのdisplay:flexが上書きされないよう明示
+    brd.style.flexDirection='row';    // ← インラインで横並びを強制（CSSより優先）
+    brd.style.alignItems='flex-start';
+    brd.style.overflowX='auto';
+    brd.style.overflowY='hidden';
+    brd.style.width='100%';
+  }
   // ユーザーバッジ更新
   const ub = document.getElementById('user-badge');
   if(ub) ub.innerHTML=`<span>${esc(currentUser.name)}</span>（${esc(currentUser.department||'—')}）`;
