@@ -241,9 +241,51 @@ document.addEventListener('click',()=>{userGestured=true;},{once:true,passive:tr
 // ─── AUTH UI HELPERS ──────────────────────────────────────────
 function setAuthErr(id,msg,ok=false){const el=qs('#'+id);el.textContent=msg;el.style.color=ok?'#10b981':'#ef4444';el.style.display=msg?'':'none';}
 function setBtn(id,dis,txt){const b=qs('#'+id);if(b){b.disabled=dis;b.textContent=txt;}}
-function showLoginScreen(){qs('#loading-screen').classList.add('hidden');qs('#login-screen').classList.remove('hidden');qs('#signup-screen').classList.add('hidden');qs('#main-header').style.display='none';qs('#board').style.display='none';if(ALLOW_SIGNUP)qs('#signup-link').classList.remove('hidden');}
-function showSignupScreen(){qs('#login-screen').classList.add('hidden');qs('#signup-screen').classList.remove('hidden');}
-function showApp(){qs('#loading-screen').classList.add('hidden');qs('#login-screen').classList.add('hidden');qs('#signup-screen').classList.add('hidden');qs('#main-header').style.display='';qs('#board').style.display='';qs('#user-badge').innerHTML=`<span>${esc(currentUser.name)}</span>（${esc(currentUser.department||'—')}）`;init();}
+function showLoginScreen(){
+  // loading-screen を完全に非表示（z-index:10000 が前面に残らないよう style.display で明示）
+  const ls = document.getElementById('loading-screen');
+  if(ls){ ls.style.display='none'; ls.classList.add('hidden'); }
+  // login-screen を表示
+  const lin = document.getElementById('login-screen');
+  if(lin){ lin.style.display='flex'; lin.classList.remove('hidden'); }
+  // signup-screen を非表示
+  const sig = document.getElementById('signup-screen');
+  if(sig){ sig.style.display='none'; sig.classList.add('hidden'); }
+  // header / board を非表示
+  const hdr = document.getElementById('main-header');
+  if(hdr) hdr.style.display='none';
+  const brd = document.getElementById('board');
+  if(brd) brd.style.display='none';
+  // 新規登録リンクの表示切替
+  const sl = document.getElementById('signup-link');
+  if(sl){ if(ALLOW_SIGNUP){ sl.style.display=''; sl.classList.remove('hidden'); } else { sl.style.display='none'; sl.classList.add('hidden'); } }
+}
+function showSignupScreen(){
+  const lin = document.getElementById('login-screen');
+  if(lin){ lin.style.display='none'; lin.classList.add('hidden'); }
+  const sig = document.getElementById('signup-screen');
+  if(sig){ sig.style.display='flex'; sig.classList.remove('hidden'); }
+}
+function showApp(){
+  // loading-screen を完全に非表示（z-index:10000 が前面に残らないよう style.display で明示）
+  const ls = document.getElementById('loading-screen');
+  if(ls){ ls.style.display='none'; ls.classList.add('hidden'); }
+  // auth screens を非表示
+  const lin = document.getElementById('login-screen');
+  if(lin){ lin.style.display='none'; lin.classList.add('hidden'); }
+  const sig = document.getElementById('signup-screen');
+  if(sig){ sig.style.display='none'; sig.classList.add('hidden'); }
+  // header を表示（flex）
+  const hdr = document.getElementById('main-header');
+  if(hdr) hdr.style.display='flex';
+  // board を表示（block）
+  const brd = document.getElementById('board');
+  if(brd) brd.style.display='block';
+  // ユーザーバッジ更新
+  const ub = document.getElementById('user-badge');
+  if(ub) ub.innerHTML=`<span>${esc(currentUser.name)}</span>（${esc(currentUser.department||'—')}）`;
+  init();
+}
 
 // ─── AUTH FUNCTIONS ───────────────────────────────────────────
 async function doLogin(){
