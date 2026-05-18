@@ -414,7 +414,24 @@ async function dbUpdateColumn(id,data){const{error}=await db.from('columns').upd
 async function dbDeleteColumn(id){const{error}=await db.from('columns').delete().eq('id',id);if(error)throw error;}
 
 // ─── REALTIME ─────────────────────────────────────────────────
-function subscribeRealtime(){realtimeChannel=db.channel('kanban_shared').on('postgres_changes',{event:'*',schema:'public',table:'cards'},async()=>{await loadAll();render();}).on('postgres_changes',{event:'*',schema:'public',table:'columns'},async()=>{await loadAll();render();}).subscribe();}
+// 方針: subscribe()前にすべての.on()を登録し、最後に一度だけsubscribe()する
+//       再呼び出し時は既存チャンネルをremoveChannelで破棄してから再作成
+function subscribeRealtime(){
+  // 既存チャンネルがあれば先に破棄（二重登録防止）
+  if(realtimeChannel){
+    db.removeChannel(realtimeChannel);
+    realtimeChannel=null;
+  }
+  // すべての.on()を登録してから最後に一度だけsubscribe()
+  realtimeChannel=db.channel('kanban_shared')
+    .on('postgres_changes',{event:'*',schema:'public',table:'columns'},async()=>{await loadAll();render();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'cards'},async()=>{await loadAll();render();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'card_history'},async()=>{/* 詳細モーダルは次回openDetail時に最新取得 */})
+    .subscribe((status,err)=>{
+      if(err) console.error('[KanbanBoard] Realtime エラー:', err);
+      else console.log('[KanbanBoard] Realtime status:', status);
+    });
+}
 
 // ─── ALERTS ───────────────────────────────────────────────────
 function isDoneCol(colId){const col=state.columns.find(c=>c.id===colId);return col&&DONE_KEYWORDS.some(k=>col.title.includes(k));}
