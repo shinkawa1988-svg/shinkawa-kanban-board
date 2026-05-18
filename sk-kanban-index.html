@@ -336,18 +336,56 @@ db.auth.onAuthStateChange(async(event,session)=>{
   _authResolved = true;
   if(session&&session.user){
     setLoadingMsg('ユーザー情報を取得中…');
+    let _profileResolved = false;
     try{
-      const{data:profile,error:profileErr}=await db.from('users').select('*').eq('id',session.user.id).maybeSingle();
-      if(profileErr) console.warn('[KanbanBoard] users取得エラー（続行）:', profileErr.message);
-      currentUser=profile||{id:session.user.id,name:session.user.email,department:'',role:'member'};
-      console.log('[KanbanBoard] currentUser設定完了:', currentUser.name);
+      // ── public.users select（10秒タイムアウト付き） ──────────────────
+      // public.users.id = auth.users.id（UUID）。email列は存在しない。
+      console.log('[KanbanBoard] public.users select 開始 uid=', session.user.id);
+
+      const _profilePromise = db.from('users')
+        .select('id, name, department, role')   // email列は無いので列を明示
+        .eq('id', session.user.id)              // auth.uid() と同一のUUID
+        .maybeSingle();
+
+      const _timeoutPromise = new Promise((_,reject) =>
+        setTimeout(() => reject(new Error('public.users select タイムアウト（10秒）')), 10000)
+      );
+
+      const { data: profile, error: profileErr } = await Promise.race([_profilePromise, _timeoutPromise]);
+      _profileResolved = true;
+
+      if(profileErr){
+        console.error('[KanbanBoard] public.users select 失敗:', profileErr.message, profileErr);
+      } else {
+        console.log('[KanbanBoard] public.users select 成功:', profile);
+      }
+
+      currentUser = profile || {
+        id: session.user.id,
+        name: session.user.email,   // フォールバック: auth.users.email を使用
+        department: '',
+        role: 'member'
+      };
+      console.log('[KanbanBoard] currentUser 確定:', currentUser.name, '/ 部署:', currentUser.department);
       setLoadingMsg('ボードを読み込み中…');
       showApp();
+
     }catch(e){
-      console.error('[KanbanBoard] onAuthStateChange内エラー:', e);
-      // フォールバック: エラーでも続行
-      currentUser={id:session.user.id,name:session.user.email,department:'',role:'member'};
-      showApp();
+      console.error('[KanbanBoard] ユーザー情報取得エラー（フォールバックで続行）:', e.message, e);
+      // タイムアウト or 例外: auth.users の情報でフォールバック
+      currentUser = {
+        id: session.user.id,
+        name: session.user.email || 'ユーザー',
+        department: '',
+        role: 'member'
+      };
+      console.warn('[KanbanBoard] フォールバックユーザーで showApp() を呼びます:', currentUser.name);
+    }finally{
+      // _profileResolved が false のまま catch を通った場合も含め、必ず画面を切り替える
+      if(!_profileResolved || !document.getElementById('board') || document.getElementById('board').style.display === 'none'){
+        console.log('[KanbanBoard] finally: showApp() を確実に呼び出し');
+        if(currentUser) showApp(); else showLoginScreen();
+      }
     }
   }else{
     console.log('[KanbanBoard] セッションなし → ログイン画面へ');
